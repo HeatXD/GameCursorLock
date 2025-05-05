@@ -1,0 +1,61 @@
+name: Build and Release GameCursorLock
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  SOLUTION_FILE_PATH: GameCursorLock.sln
+  BUILD_CONFIGURATION: Release
+  ARTIFACT_NAME: GameCursorLock
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up MSBuild
+      uses: microsoft/setup-msbuild@v1.0.2
+
+    - name: Build Solution
+      run: msbuild ${{ env.SOLUTION_FILE_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /m
+
+    - name: Archive Release Executable
+      run: |
+        $outputDir = "build"
+        $zipFile = "${{ env.ARTIFACT_NAME }}.zip"
+        New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
+
+        # Adjust path if output differs (e.g., Debug or Win32)
+        Copy-Item -Path ".\\x64\\Release\\GameCursorLock.exe" -Destination "$outputDir\\GameCursorLock.exe" -Force
+
+        Compress-Archive -Path "$outputDir\\*" -DestinationPath $zipFile
+      shell: pwsh
+
+    - name: Create Git Tag
+      run: |
+        $commitHash = git rev-parse --short HEAD
+        $tag = "v1.0.$commitHash"
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git tag $tag
+        git push origin $tag
+        echo "TAG_NAME=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
+      shell: pwsh
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ env.TAG_NAME }}
+        name: Release ${{ env.TAG_NAME }}
+        files: GameCursorLock.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
