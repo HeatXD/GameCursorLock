@@ -40,7 +40,6 @@ private:
         RECT clientRect;
         if (!GetClientRect(hwnd, &clientRect)) return;
 
-        // C-style clamping logic
         int maxX = clientRect.right - 1;
         int maxY = clientRect.bottom - 1;
 
